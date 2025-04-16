@@ -1,13 +1,208 @@
 
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import BottomNavigation from "@/components/BottomNavigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/use-toast";
+import { Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import BottomNavigation from "@/components/BottomNavigation";
+
+interface Package {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+}
 
 const Recharge = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-
+  const [isLoading, setIsLoading] = useState(true);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
+  const [currentBalance, setCurrentBalance] = useState(0);
+  const [formData, setFormData] = useState({
+    amount: 50,
+    paymentMethod: "",
+    transactionId: "",
+  });
+  const [paymentInfo, setPaymentInfo] = useState({
+    accountNumber: "017xxxxxx66",
+    rate: 100,
+  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        navigate("/");
+        return;
+      }
+      
+      // Fetch package details if ID is provided
+      if (id) {
+        const { data: packageData, error: packageError } = await supabase
+          .from('packages')
+          .select('*')
+          .eq('id', id)
+          .single();
+          
+        if (!packageError && packageData) {
+          setSelectedPackage(packageData);
+          setFormData(prev => ({ ...prev, amount: packageData.price }));
+        }
+      }
+      
+      // Fetch user's current balance
+      const { data: userData, error: userError } = await supabase
+        .from('profiles')
+        .select('balance')
+        .eq('id', session.user.id)
+        .single();
+        
+      if (!userError && userData) {
+        setCurrentBalance(userData.balance || 0);
+      }
+      
+      setIsLoading(false);
+    };
+    
+    checkAuth();
+  }, [navigate, id]);
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      // Validation
+      if (!formData.paymentMethod) {
+        toast({
+          title: "Error",
+          description: "Please select a payment method",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!formData.transactionId) {
+        toast({
+          title: "Error",
+          description: "Transaction ID is required",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!selectedFile) {
+        toast({
+          title: "Error",
+          description: "Payment screenshot is required",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/");
+        return;
+      }
+      
+      setUploadingFile(true);
+      
+      // Upload screenshot
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
+      
+      const { data: fileData, error: fileError } = await supabase.storage
+        .from('payment-screenshots')
+        .upload(fileName, selectedFile);
+        
+      if (fileError) {
+        throw fileError;
+      }
+      
+      // Get public URL for the uploaded file
+      const { data: publicUrlData } = supabase.storage
+        .from('payment-screenshots')
+        .getPublicUrl(fileName);
+        
+      const screenshotUrl = publicUrlData.publicUrl;
+      
+      // Create deposit record
+      const { data: depositData, error: depositError } = await supabase
+        .from('deposits')
+        .insert([
+          {
+            user_id: session.user.id,
+            amount: formData.amount,
+            payment_method: formData.paymentMethod,
+            transaction_id: formData.transactionId,
+            screenshot_url: screenshotUrl,
+            status: 'pending',
+            package_id: id || null
+          }
+        ]);
+        
+      if (depositError) {
+        throw depositError;
+      }
+      
+      // Create transaction record
+      await supabase
+        .from('transactions')
+        .insert([
+          {
+            user_id: session.user.id,
+            amount: formData.amount,
+            type: 'deposit',
+            status: 'pending',
+            description: `Deposit of $${formData.amount} pending approval`
+          }
+        ]);
+      
+      toast({
+        title: "Success",
+        description: "Your deposit request has been submitted!",
+      });
+      
+      navigate("/dashboard");
+    } catch (error) {
+      console.error('Error submitting deposit:', error);
+      toast({
+        title: "Error",
+        description: "Failed to submit deposit request",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-orange-100">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+  
+  const toPay = formData.amount * paymentInfo.rate;
+  
   return (
     <div className="relative min-h-screen bg-orange-100 max-w-[480px] mx-auto overflow-hidden">
       <div className="relative overflow-x-hidden min-h-screen">
@@ -28,7 +223,9 @@ const Recharge = () => {
                   alt="back"
                   onClick={() => navigate(-1)}
                 />
-                <h1 className="text-white text-[16px]">Top-up for TSLA</h1>
+                <h1 className="text-white text-[16px]">
+                  {selectedPackage ? `Top-up for ${selectedPackage.name}` : "Deposit Funds"}
+                </h1>
               </div>
               <div className="bg-gradient-to-b from-gray-200 to-orange-200 h-[40px] w-[40px] rounded-full p-[2px]">
                 <img 
@@ -44,7 +241,7 @@ const Recharge = () => {
                 <div className="flex justify-between items-center gap-2">
                   <div>
                     <h1 className="text-orange-500 font-semibold text-[16px]">Current Balance</h1>
-                    <h1 className="text-orange-500 font-semibold text-[26px]">$0.00</h1>
+                    <h1 className="text-orange-500 font-semibold text-[26px]">${currentBalance.toFixed(2)}</h1>
                   </div>
                   <img 
                     className="w-[70px] h-[70px]" 
@@ -54,95 +251,132 @@ const Recharge = () => {
                 </div>
               </div>
 
-              <div className="mt-4">
-                <label className="block mb-2 text-sm font-medium text-orange-600">
-                  Amount
-                </label>
-                <div className="relative mb-2">
-                  <Input
-                    type="number"
-                    className="bg-white/50 text-orange-400 ps-10 border-2 border-orange-500 focus:outline-none"
-                    placeholder="Enter Amount to Deposit"
-                    value="50"
-                    readOnly
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <div className="mb-2">
+              <form onSubmit={handleSubmit}>
+                <div className="mt-4">
                   <label className="block mb-2 text-sm font-medium text-orange-600">
-                    Deposit Method
+                    Amount
                   </label>
-                  <select className="bg-white/50 text-orange-500 text-sm rounded-lg w-full p-[12px] border-2 border-orange-600 focus:outline-none">
-                    <option>Select Deposit Method</option>
-                    <option value="1000">bKash</option>
-                    <option value="1001">Nagad</option>
-                    <option value="1002">USDT</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <div className="border-2 border-orange-500 rounded-[10px] my-[20px]">
-                  <div className="px-3 border-b-2 border-orange-500">
-                    <h1 className="font-normal text-[14px] text-gray-500 mt-2">Our bKash Number:</h1>
-                    <div className="flex items-center justify-between mb-2">
-                      <h1 className="font-bold text-sm text-orange-500 text-nowrap truncate">017xxxxxx66</h1>
-                      <button className="text-orange-500 hover:text-orange-600 cursor-pointer">Copy</button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between px-3 border-b-2 border-orange-500">
-                    <h1 className="font-normal text-[14px] text-gray-500 my-2">Amount:</h1>
-                    <h1 className="font-bold text-sm my-2 text-orange-500">50.00 USDT</h1>
-                  </div>
-                  <div className="flex items-center justify-between px-3 border-b-2 border-orange-500">
-                    <h1 className="font-normal text-[14px] text-gray-500 my-2">Rate:</h1>
-                    <h1 className="font-bold text-sm my-2 text-orange-500">1 USDT = 100.00 Taka</h1>
-                  </div>
-                  <div className="flex items-center justify-between px-3">
-                    <h1 className="font-normal text-[14px] text-gray-500 my-2">You Need To Pay:</h1>
-                    <h1 className="font-bold text-sm my-2 text-orange-500">5000.00 Taka</h1>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <div className="bg-white/50 rounded-[20px] p-4">
-                  <h1 className="text-center text-[16px] font-semibold text-orange-600 underline">
-                    After Pay Fill This Form Carefully
-                  </h1>
-                  <div className="mt-[10px]">
-                    <label className="block mb-2 text-sm font-medium text-orange-500">
-                      Your Payment Transaction ID
-                    </label>
-                    <div className="relative mb-2">
-                      <Input
-                        type="text"
-                        className="bg-white/50 text-orange-400 ps-10 border-2 border-orange-500 focus:outline-none"
-                        placeholder="Enter your Payment Transaction ID"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-[10px] mb-[30px]">
-                    <label className="block mb-2 text-sm font-medium text-orange-500">
-                      Upload Payment Screenshot
-                    </label>
-                    <input
-                      className="block w-full bg-transparent text-sm text-orange-500 border-2 border-orange-500 rounded-lg cursor-pointer bg-orange-50 py-[5px]"
-                      type="file"
-                      name="screenshot"
+                  <div className="relative mb-2">
+                    <Input
+                      type="number"
+                      name="amount"
+                      className="bg-white/50 text-orange-400 ps-10 border-2 border-orange-500 focus:outline-none"
+                      placeholder="Enter Amount to Deposit"
+                      value={formData.amount}
+                      onChange={handleChange}
+                      disabled={selectedPackage !== null}
                     />
                   </div>
-                  <div className="mt-4">
-                    <Button 
-                      className="w-full bg-gradient-to-b from-orange-500 to-orange-400 hover:bg-gradient-to-t"
+                </div>
+
+                <div className="mt-4">
+                  <div className="mb-2">
+                    <label className="block mb-2 text-sm font-medium text-orange-600">
+                      Deposit Method
+                    </label>
+                    <select 
+                      name="paymentMethod"
+                      value={formData.paymentMethod}
+                      onChange={handleChange}
+                      className="bg-white/50 text-orange-500 text-sm rounded-lg w-full p-[12px] border-2 border-orange-600 focus:outline-none"
                     >
-                      Send Deposit Request!
-                    </Button>
+                      <option value="">Select Deposit Method</option>
+                      <option value="bKash">bKash</option>
+                      <option value="Nagad">Nagad</option>
+                      <option value="USDT">USDT</option>
+                    </select>
                   </div>
                 </div>
-              </div>
+
+                <div className="mt-4">
+                  <div className="border-2 border-orange-500 rounded-[10px] my-[20px]">
+                    <div className="px-3 border-b-2 border-orange-500">
+                      <h1 className="font-normal text-[14px] text-gray-500 mt-2">Our bKash Number:</h1>
+                      <div className="flex items-center justify-between mb-2">
+                        <h1 className="font-bold text-sm text-orange-500 text-nowrap truncate">
+                          {paymentInfo.accountNumber}
+                        </h1>
+                        <button 
+                          type="button"
+                          className="text-orange-500 hover:text-orange-600 cursor-pointer"
+                          onClick={() => {
+                            navigator.clipboard.writeText(paymentInfo.accountNumber);
+                            toast({
+                              title: "Copied",
+                              description: "Account number copied to clipboard",
+                            });
+                          }}
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between px-3 border-b-2 border-orange-500">
+                      <h1 className="font-normal text-[14px] text-gray-500 my-2">Amount:</h1>
+                      <h1 className="font-bold text-sm my-2 text-orange-500">{formData.amount.toFixed(2)} USDT</h1>
+                    </div>
+                    <div className="flex items-center justify-between px-3 border-b-2 border-orange-500">
+                      <h1 className="font-normal text-[14px] text-gray-500 my-2">Rate:</h1>
+                      <h1 className="font-bold text-sm my-2 text-orange-500">1 USDT = {paymentInfo.rate.toFixed(2)} Taka</h1>
+                    </div>
+                    <div className="flex items-center justify-between px-3">
+                      <h1 className="font-normal text-[14px] text-gray-500 my-2">You Need To Pay:</h1>
+                      <h1 className="font-bold text-sm my-2 text-orange-500">{toPay.toFixed(2)} Taka</h1>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <div className="bg-white/50 rounded-[20px] p-4">
+                    <h1 className="text-center text-[16px] font-semibold text-orange-600 underline">
+                      After Pay Fill This Form Carefully
+                    </h1>
+                    <div className="mt-[10px]">
+                      <label className="block mb-2 text-sm font-medium text-orange-500">
+                        Your Payment Transaction ID
+                      </label>
+                      <div className="relative mb-2">
+                        <Input
+                          type="text"
+                          name="transactionId"
+                          value={formData.transactionId}
+                          onChange={handleChange}
+                          className="bg-white/50 text-orange-400 ps-10 border-2 border-orange-500 focus:outline-none"
+                          placeholder="Enter your Payment Transaction ID"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-[10px] mb-[30px]">
+                      <label className="block mb-2 text-sm font-medium text-orange-500">
+                        Upload Payment Screenshot
+                      </label>
+                      <input
+                        className="block w-full bg-transparent text-sm text-orange-500 border-2 border-orange-500 rounded-lg cursor-pointer bg-orange-50 py-[5px]"
+                        type="file"
+                        name="screenshot"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                      />
+                    </div>
+                    <div className="mt-4">
+                      <Button 
+                        type="submit"
+                        className="w-full bg-gradient-to-b from-orange-500 to-orange-400 hover:bg-gradient-to-t"
+                        disabled={uploadingFile}
+                      >
+                        {uploadingFile ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                            Processing...
+                          </>
+                        ) : (
+                          "Send Deposit Request!"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </form>
             </div>
           </div>
         </div>

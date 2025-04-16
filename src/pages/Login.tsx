@@ -1,14 +1,19 @@
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FaUser, FaKey } from 'react-icons/fa';
 import { isValidEmail } from '@/lib/utils';
+import { supabase } from '@/lib/supabaseClient';
+import { toast } from '@/components/ui/use-toast';
+import { Loader2 } from 'lucide-react';
 
 const Login = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     username: '',
     password: '',
   });
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -17,30 +22,78 @@ const Login = () => {
 
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
     
-    // Basic validation
-    if (!formData.username) {
-      setError('Username or email is required');
-      return;
+    try {
+      // Basic validation
+      if (!formData.username) {
+        throw new Error('Username or email is required');
+      }
+      
+      if (!formData.password) {
+        throw new Error('Password is required');
+      }
+      
+      // If username contains @, validate as email
+      if (formData.username.includes('@') && !isValidEmail(formData.username)) {
+        throw new Error('Please enter a valid email address');
+      }
+      
+      // Determine if input is email or username
+      const isEmail = formData.username.includes('@');
+      
+      let credentials;
+      if (isEmail) {
+        // Login with email
+        credentials = {
+          email: formData.username,
+          password: formData.password
+        };
+      } else {
+        // First get the email associated with this username
+        const { data: userData, error: userError } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('username', formData.username)
+          .single();
+          
+        if (userError || !userData?.email) {
+          throw new Error('User not found');
+        }
+        
+        credentials = {
+          email: userData.email,
+          password: formData.password
+        };
+      }
+      
+      // Sign in with email and password
+      const { data, error } = await supabase.auth.signInWithPassword(credentials);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      toast({
+        title: "Login Successful",
+        description: "Welcome back!",
+      });
+      
+      // Redirect to dashboard
+      navigate('/dashboard');
+    } catch (error: any) {
+      setError(error.message);
+      toast({
+        title: "Login Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-    
-    if (!formData.password) {
-      setError('Password is required');
-      return;
-    }
-    
-    // If username contains @, validate as email
-    if (formData.username.includes('@') && !isValidEmail(formData.username)) {
-      setError('Please enter a valid email address');
-      return;
-    }
-    
-    // All validation passed
-    console.log('Login attempt with:', formData);
-    // Here you would typically make an API call to your backend
   };
 
   return (
@@ -93,6 +146,7 @@ const Login = () => {
                   className="auth-input"
                   placeholder="Enter your email or username"
                   required
+                  disabled={isLoading}
                 />
               </div>
 
@@ -110,14 +164,26 @@ const Login = () => {
                     className="auth-input"
                     placeholder="Enter your password"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
 
               {/* Submit Button */}
               <div className="flex justify-center">
-                <button type="submit" className="auth-button">
-                  Sign In
+                <button 
+                  type="submit" 
+                  className="auth-button flex items-center justify-center"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                      Signing In...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
                 </button>
               </div>
             </form>

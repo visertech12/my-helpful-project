@@ -1,17 +1,44 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
+import { supabase } from "@/lib/supabaseClient";
 import BottomNavigation from "@/components/BottomNavigation";
-import { Lock } from "lucide-react";
+import { Lock, Loader2 } from "lucide-react";
 
 const WithdrawPassword = () => {
   const navigate = useNavigate();
   const [withdrawPin, setWithdrawPin] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPinSet, setIsPinSet] = useState(false);
+  
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        navigate("/");
+        return;
+      }
+      
+      // Check if user has already set a withdraw PIN
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('withdraw_pin')
+        .eq('id', session.user.id)
+        .single();
+        
+      if (!error && data && data.withdraw_pin) {
+        setIsPinSet(true);
+      }
+    };
+    
+    checkAuth();
+  }, [navigate]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate pin
@@ -23,12 +50,55 @@ const WithdrawPassword = () => {
       });
       return;
     }
-
-    // Here you would typically make an API call to update the withdraw pin
-    toast({
-      title: "Success",
-      description: "Your withdraw pin has been updated successfully",
-    });
+    
+    if (withdrawPin.length < 4) {
+      toast({
+        title: "Error",
+        description: "Withdraw pin must be at least 4 characters",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        navigate("/");
+        return;
+      }
+      
+      // Update withdraw PIN
+      const { error } = await supabase
+        .from('profiles')
+        .update({ withdraw_pin: withdrawPin })
+        .eq('id', session.user.id);
+        
+      if (error) {
+        throw error;
+      }
+      
+      toast({
+        title: "Success",
+        description: isPinSet 
+          ? "Your withdraw pin has been updated successfully"
+          : "Your withdraw pin has been set successfully",
+      });
+      
+      setIsPinSet(true);
+      setWithdrawPin("");
+    } catch (error) {
+      console.error('Error updating withdraw pin:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update withdraw pin",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -66,7 +136,7 @@ const WithdrawPassword = () => {
           <form onSubmit={handleSubmit} className="bg-white/50 backdrop-blur min-h-screen mx-auto px-[15px] pt-[30px] mt-[60px] rounded-t-[20px]">
             <div className="mb-2">
               <label htmlFor="withdrawPin" className="block mb-2 text-sm font-medium text-orange-600">
-                Withdraw Pin
+                {isPinSet ? "Enter New Withdraw Pin" : "Set Withdraw Pin"}
               </label>
               <div className="relative mb-2">
                 <div className="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
@@ -86,9 +156,17 @@ const WithdrawPassword = () => {
 
             <Button 
               type="submit"
+              disabled={isLoading}
               className="w-full py-3 font-semibold text-white rounded-[10px] shadow-lg my-2 bg-gradient-to-r hover:bg-gradient-to-l from-orange-500 to-orange-400 shadow-md shadow-orange-700/40"
             >
-              Update Pin
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                  Updating...
+                </>
+              ) : (
+                isPinSet ? "Update Pin" : "Set Pin"
+              )}
             </Button>
           </form>
         </div>

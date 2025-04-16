@@ -20,6 +20,14 @@ import ProfileSetting from "./pages/ProfileSetting";
 import AccountPassword from "./pages/AccountPassword";
 import WithdrawPassword from "./pages/WithdrawPassword";
 import WithdrawWallet from "./pages/WithdrawWallet";
+import TransactionHistory from "./pages/TransactionHistory";
+
+// Admin routes
+import AdminLogin from "./pages/admin/AdminLogin";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import UsersManagement from "./pages/admin/UsersManagement";
+import DepositsManagement from "./pages/admin/DepositsManagement";
+import WithdrawalsManagement from "./pages/admin/WithdrawalsManagement";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +36,7 @@ const App = () => (
     <BrowserRouter>
       <TooltipProvider>
         <Routes>
+          {/* User routes */}
           <Route path="/" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -43,6 +52,16 @@ const App = () => (
           <Route path="/withdraw-password" element={<WithdrawPassword />} />
           <Route path="/withdraw-wallet" element={<WithdrawWallet />} />
           <Route path="/recharge/:id" element={<Recharge />} />
+          <Route path="/recharge" element={<Recharge />} />
+          <Route path="/transactions" element={<TransactionHistory />} />
+          
+          {/* Admin routes */}
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/users" element={<UsersManagement />} />
+          <Route path="/admin/deposits" element={<DepositsManagement />} />
+          <Route path="/admin/withdrawals" element={<WithdrawalsManagement />} />
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
         <Toaster />
