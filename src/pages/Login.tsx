@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaUser, FaKey } from 'react-icons/fa';
 import { isValidEmail } from '@/lib/utils';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
 
