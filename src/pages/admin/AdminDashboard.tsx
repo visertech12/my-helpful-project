@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/lib/supabaseClient";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminHeader from "@/components/admin/AdminHeader";
-import { ChartContainer, LineChart } from "@/components/ui/chart";
+import { ChartContainer } from "@/components/ui/chart";
 import { Loader2 } from "lucide-react";
+import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -81,6 +82,43 @@ const AdminDashboard = () => {
       setIsLoading(false);
     }
   };
+
+  // Chart data
+  const userGrowthData = [
+    { name: "Mon", users: 10 },
+    { name: "Tue", users: 15 },
+    { name: "Wed", users: 18 },
+    { name: "Thu", users: 22 },
+    { name: "Fri", users: 28 },
+    { name: "Sat", users: 35 },
+    { name: "Sun", users: 40 },
+  ];
+
+  const transactionData = [
+    { name: "Mon", deposits: 10, withdrawals: 5 },
+    { name: "Tue", deposits: 15, withdrawals: 8 },
+    { name: "Wed", deposits: 12, withdrawals: 10 },
+    { name: "Thu", deposits: 20, withdrawals: 12 },
+    { name: "Fri", deposits: 18, withdrawals: 11 },
+    { name: "Sat", deposits: 22, withdrawals: 15 },
+    { name: "Sun", deposits: 25, withdrawals: 18 },
+  ];
+  
+  // Chart configuration
+  const chartConfig = {
+    users: {
+      label: "Users",
+      color: "#f97316"
+    },
+    deposits: {
+      label: "Deposits",
+      color: "#f97316"
+    },
+    withdrawals: {
+      label: "Withdrawals",
+      color: "#fb923c"
+    }
+  };
   
   return (
     <div className="flex h-screen bg-gray-100">
@@ -140,17 +178,21 @@ const AdminDashboard = () => {
                     <CardTitle>Recent User Growth</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ChartContainer className="h-[300px]">
-                      <LineChart 
-                        data={[
-                          {
-                            name: "Users",
-                            data: [10, 15, 18, 22, 28, 35, 40],
-                          }
-                        ]}
-                        categories={["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]}
-                        colors={["#f97316"]} 
-                      />
+                    <ChartContainer config={chartConfig} className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsLineChart data={userGrowthData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Line 
+                            type="monotone" 
+                            dataKey="users" 
+                            stroke="#f97316" 
+                            activeDot={{ r: 8 }} 
+                          />
+                        </RechartsLineChart>
+                      </ResponsiveContainer>
                     </ChartContainer>
                   </CardContent>
                 </Card>
@@ -160,21 +202,26 @@ const AdminDashboard = () => {
                     <CardTitle>Recent Transactions</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ChartContainer className="h-[300px]">
-                      <LineChart 
-                        data={[
-                          {
-                            name: "Deposits",
-                            data: [10, 15, 12, 20, 18, 22, 25],
-                          },
-                          {
-                            name: "Withdrawals",
-                            data: [5, 8, 10, 12, 11, 15, 18],
-                          }
-                        ]}
-                        categories={["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]}
-                        colors={["#f97316", "#fb923c"]} 
-                      />
+                    <ChartContainer config={chartConfig} className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsLineChart data={transactionData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Line 
+                            type="monotone" 
+                            dataKey="deposits" 
+                            stroke="#f97316" 
+                            activeDot={{ r: 8 }} 
+                          />
+                          <Line 
+                            type="monotone" 
+                            dataKey="withdrawals" 
+                            stroke="#fb923c" 
+                          />
+                        </RechartsLineChart>
+                      </ResponsiveContainer>
                     </ChartContainer>
                   </CardContent>
                 </Card>
