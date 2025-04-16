@@ -17,6 +17,9 @@ import Guide from "./pages/Guide";
 import Profile from "./pages/Profile";
 import Recharge from "./pages/Recharge";
 import ProfileSetting from "./pages/ProfileSetting";
+import AccountPassword from "./pages/AccountPassword";
+import WithdrawPassword from "./pages/WithdrawPassword";
+import WithdrawWallet from "./pages/WithdrawWallet";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +39,9 @@ const App = () => (
           <Route path="/guide" element={<Guide />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile-setting" element={<ProfileSetting />} />
+          <Route path="/account-password" element={<AccountPassword />} />
+          <Route path="/withdraw-password" element={<WithdrawPassword />} />
+          <Route path="/withdraw-wallet" element={<WithdrawWallet />} />
           <Route path="/recharge/:id" element={<Recharge />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

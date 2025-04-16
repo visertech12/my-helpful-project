@@ -78,9 +78,11 @@ const Profile = () => {
                 ].map((item, index) => (
                   <div key={item.path}>
                     <a 
-                      className="flex items-center justify-between py-3"
-                      href={item.path}
+                      className="flex items-center justify-between py-3 cursor-pointer"
+                      href={item.external ? item.path : undefined}
+                      onClick={item.external ? undefined : () => navigate(item.path)}
                       target={item.external ? "_blank" : undefined}
+                      rel={item.external ? "noopener noreferrer" : undefined}
                     >
                       <h1 className="text-black text-[14px] font-bold">{item.title}</h1>
                       <img 
