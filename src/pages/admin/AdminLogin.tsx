@@ -128,6 +128,13 @@ const AdminLogin = () => {
             {isLoading ? "Logging in..." : "Login to Admin Panel"}
           </Button>
         </form>
+        
+        <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">Default Admin Credentials</h3>
+          <p className="text-xs text-gray-500">Email: admin@example.com</p>
+          <p className="text-xs text-gray-500">Password: Admin@123</p>
+          <p className="text-xs text-gray-500 mt-2">Please change these credentials after first login.</p>
+        </div>
       </div>
     </div>
   );

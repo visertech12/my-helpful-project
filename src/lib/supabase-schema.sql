@@ -15,6 +15,7 @@ CREATE TABLE profiles (
   status TEXT DEFAULT 'active',
   withdraw_pin TEXT,
   wallet_address TEXT,
+  role TEXT DEFAULT 'user',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -106,9 +107,27 @@ CREATE POLICY "Users can view own profile" ON profiles FOR SELECT
 CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE
   USING (auth.uid() = id);
 
+-- Profiles: Allow admins to view all profiles
+CREATE POLICY "Admins can view all profiles" ON profiles FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+  ));
+
+-- Profiles: Allow admins to update all profiles
+CREATE POLICY "Admins can update all profiles" ON profiles FOR UPDATE
+  USING (EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+  ));
+
 -- Transactions: Allow users to read their own transactions
 CREATE POLICY "Users can view own transactions" ON transactions FOR SELECT
   USING (auth.uid() = user_id);
+
+-- Transactions: Allow admins to view all transactions
+CREATE POLICY "Admins can view all transactions" ON transactions FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+  ));
 
 -- Deposits: Allow users to insert their own deposits
 CREATE POLICY "Users can create deposits" ON deposits FOR INSERT
@@ -118,6 +137,18 @@ CREATE POLICY "Users can create deposits" ON deposits FOR INSERT
 CREATE POLICY "Users can view own deposits" ON deposits FOR SELECT
   USING (auth.uid() = user_id);
 
+-- Deposits: Allow admins to view all deposits
+CREATE POLICY "Admins can view all deposits" ON deposits FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+  ));
+
+-- Deposits: Allow admins to update deposits
+CREATE POLICY "Admins can update deposits" ON deposits FOR UPDATE
+  USING (EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+  ));
+
 -- Withdrawals: Allow users to insert their own withdrawals
 CREATE POLICY "Users can create withdrawals" ON withdrawals FOR INSERT
   WITH CHECK (auth.uid() = user_id);
@@ -126,17 +157,47 @@ CREATE POLICY "Users can create withdrawals" ON withdrawals FOR INSERT
 CREATE POLICY "Users can view own withdrawals" ON withdrawals FOR SELECT
   USING (auth.uid() = user_id);
 
+-- Withdrawals: Allow admins to view all withdrawals
+CREATE POLICY "Admins can view all withdrawals" ON withdrawals FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+  ));
+
+-- Withdrawals: Allow admins to update withdrawals
+CREATE POLICY "Admins can update withdrawals" ON withdrawals FOR UPDATE
+  USING (EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+  ));
+
 -- Packages: Allow all users to view packages
 CREATE POLICY "Anyone can view packages" ON packages FOR SELECT
   USING (TRUE);
+
+-- Packages: Allow admins to insert, update or delete packages
+CREATE POLICY "Admins can manage packages" ON packages FOR ALL
+  USING (EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+  ));
 
 -- User Packages: Allow users to view their own packages
 CREATE POLICY "Users can view own packages" ON user_packages FOR SELECT
   USING (auth.uid() = user_id);
 
+-- User Packages: Allow admins to view all user packages
+CREATE POLICY "Admins can view all user packages" ON user_packages FOR SELECT
+  USING (EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+  ));
+
 -- Notices: Allow all users to view notices
 CREATE POLICY "Anyone can view notices" ON notices FOR SELECT
   USING (TRUE);
+
+-- Notices: Allow admins to manage notices
+CREATE POLICY "Admins can manage notices" ON notices FOR ALL
+  USING (EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
+  ));
 
 -- Create function to increment user balance
 CREATE OR REPLACE FUNCTION increment_balance(user_id_param UUID, amount_param DECIMAL)
