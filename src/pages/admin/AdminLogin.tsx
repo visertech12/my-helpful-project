@@ -1,19 +1,30 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { FaUser, FaKey } from "react-icons/fa";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { profile } = useAuth();
+  
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+
+  // Redirect if already logged in as admin
+  useEffect(() => {
+    if (profile?.role === 'admin') {
+      navigate('/admin/dashboard');
+    }
+  }, [profile, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -65,7 +76,9 @@ const AdminLogin = () => {
         description: "Welcome to admin panel",
       });
       
-      navigate("/admin/dashboard");
+      // Redirect to admin dashboard or saved location
+      const from = (location.state as any)?.from?.pathname || '/admin/dashboard';
+      navigate(from);
     } catch (error: any) {
       toast({
         title: "Error",

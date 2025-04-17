@@ -1,19 +1,30 @@
 
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaUser, FaKey } from 'react-icons/fa';
 import { isValidEmail } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  
   const [formData, setFormData] = useState({
     username: '',
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -82,8 +93,9 @@ const Login = () => {
         description: "Welcome back!",
       });
       
-      // Redirect to dashboard
-      navigate('/dashboard');
+      // Redirect to dashboard or saved location
+      const from = (location.state as any)?.from?.pathname || '/dashboard';
+      navigate(from);
     } catch (error: any) {
       setError(error.message);
       toast({
