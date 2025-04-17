@@ -29,6 +29,7 @@ import RunningPackages from "./pages/RunningPackages";
 
 // Admin routes
 import AdminLogin from "./pages/admin/AdminLogin";
+import AdminForgotPassword from "./pages/admin/AdminForgotPassword";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import UsersManagement from "./pages/admin/UsersManagement";
 import DepositsManagement from "./pages/admin/DepositsManagement";
@@ -136,6 +137,7 @@ const App = () => (
             
             {/* Admin routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/forgot-password" element={<AdminForgotPassword />} />
             <Route path="/admin/dashboard" element={
               <AdminProtectedRoute>
                 <AdminDashboard />

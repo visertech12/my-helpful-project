@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
@@ -140,11 +140,17 @@ const AdminLogin = () => {
           >
             {isLoading ? "Logging in..." : "Login to Admin Panel"}
           </Button>
+          
+          <div className="mt-4 text-center">
+            <Link to="/admin/forgot-password" className="text-orange-500 hover:text-orange-700">
+              Forgot Password?
+            </Link>
+          </div>
         </form>
         
         <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Default Admin Credentials</h3>
-          <p className="text-xs text-gray-500">Email: admin@example.com</p>
+          <p className="text-xs text-gray-500">Email: salapa2179@insfou.com</p>
           <p className="text-xs text-gray-500">Password: Admin@123</p>
           <p className="text-xs text-gray-500 mt-2">Please change these credentials after first login.</p>
         </div>
