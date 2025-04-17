@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import BottomNavigation from "@/components/BottomNavigation";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
-import { Loader2, Timer } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface UserPackage {
@@ -80,28 +80,20 @@ const RunningPackages = () => {
     fetchUserPackages();
   }, [user, toast]);
 
-  // Calculate days remaining between now and end date
-  const calculateDaysRemaining = (endDate: string) => {
-    const end = new Date(endDate);
-    const now = new Date();
-    const diff = end.getTime() - now.getTime();
-    const days = Math.ceil(diff / (1000 * 3600 * 24));
-    return days > 0 ? days : 0;
-  };
-
   // Calculate daily profit amount
   const calculateDailyProfit = (purchaseAmount: number, dailyProfitPercentage: number) => {
     return (purchaseAmount * dailyProfitPercentage) / 100;
   };
 
-  // Calculate total profit
-  const calculateTotalProfit = (purchaseAmount: number, totalReturnPercentage: number) => {
-    return (purchaseAmount * totalReturnPercentage) / 100;
+  // Format date to MM/DD/YYYY
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
   };
 
   return (
     <div className="relative min-h-screen bg-orange-100 max-w-[480px] mx-auto overflow-hidden">
-      <div className="relative overflow-x-hidden min-h-screen">
+      <div className="relative overflow-x-hidden min-h-[100vh]">
         {/* Background gradient */}
         <div className="absolute top-[-20px] scale-[1.3] bg-gradient-to-b from-orange-600 via-orange-400 to-orange-100 w-full h-[300px] rotate-[-10deg] blur-lg"></div>
         
@@ -138,7 +130,7 @@ const RunningPackages = () => {
             </div>
           </div>
 
-          <div className="container mx-auto px-[8px] mt-4 mb-20">
+          <div className="container mx-auto px-[8px] mt-[40px]">
             {isLoading ? (
               <div className="h-[65vh] flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
@@ -151,71 +143,36 @@ const RunningPackages = () => {
                 </div>
               </div>
             ) : (
-              <div className="grid gap-4">
+              <div>
                 {packages.map((pkg) => (
                   <div 
                     key={pkg.id} 
-                    className="bg-white rounded-xl shadow-md overflow-hidden"
+                    className="flex items-center bg-white shadow-md rounded-[10px] p-2 w-100 my-3"
                   >
-                    <div className="p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <h2 className="text-lg font-bold text-orange-600">{pkg.package.name}</h2>
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          pkg.status === 'active' ? 'bg-green-100 text-green-800' : 
-                          pkg.status === 'completed' ? 'bg-blue-100 text-blue-800' : 
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {pkg.status.charAt(0).toUpperCase() + pkg.status.slice(1)}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2 text-sm text-gray-500 mb-3">
-                        <Timer className="h-4 w-4" />
-                        <span>
-                          {pkg.status === 'active' ? 
-                            `${calculateDaysRemaining(pkg.end_date)} days remaining` : 
-                            'Completed'}
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2 text-sm mb-2">
-                        <div className="bg-orange-50 p-2 rounded">
-                          <p className="text-orange-700">Purchase Amount</p>
-                          <p className="font-semibold">${pkg.purchase_amount.toFixed(2)}</p>
-                        </div>
-                        <div className="bg-orange-50 p-2 rounded">
-                          <p className="text-orange-700">Daily Profit</p>
-                          <p className="font-semibold">${calculateDailyProfit(pkg.purchase_amount, pkg.package.daily_profit_percentage).toFixed(2)}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="bg-orange-50 p-2 rounded">
-                          <p className="text-orange-700">Total Profit</p>
-                          <p className="font-semibold">${calculateTotalProfit(pkg.purchase_amount, pkg.package.total_return_percentage).toFixed(2)}</p>
-                        </div>
-                        <div className="bg-orange-50 p-2 rounded">
-                          <p className="text-orange-700">Duration</p>
-                          <p className="font-semibold">{pkg.package.duration_days} Days</p>
-                        </div>
-                      </div>
-                      
-                      {pkg.status === 'active' && (
-                        <div className="mt-3">
-                          <div className="w-full bg-gray-200 rounded-full h-2.5">
-                            <div 
-                              className="bg-orange-600 h-2.5 rounded-full" 
-                              style={{ 
-                                width: `${100 - (calculateDaysRemaining(pkg.end_date) / pkg.package.duration_days) * 100}%` 
-                              }}
-                            />
-                          </div>
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>Started: {new Date(pkg.start_date).toLocaleDateString()}</span>
-                            <span>Ends: {new Date(pkg.end_date).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      )}
+                    <img 
+                      width="50px" 
+                      className="rounded-[10px]" 
+                      src={`https://mystock-admin.scriptbasket.com/assets/images/plan/65ca81545efd51707770196.jpg`} 
+                      alt={pkg.package.name}
+                    />
+                    <div className="px-3 flex-auto">
+                      <h1 className="text-orange-400 text-md">
+                        {pkg.package.name} <span className="text-orange-50 bg-orange-500 px-2 py-[1px] rounded-full">${pkg.purchase_amount.toFixed(2)}</span>
+                      </h1>
+                      <h1 className="text-gray-400 text-sm">
+                        Daily Earn: {calculateDailyProfit(pkg.purchase_amount, pkg.package.daily_profit_percentage).toFixed(2)}
+                      </h1>
+                      <h1 className="text-gray-400 text-sm">
+                        Purchase Date: {formatDate(pkg.start_date)}
+                      </h1>
+                      <h1 className="text-gray-400 text-sm">
+                        Expire Date: {formatDate(pkg.end_date)}
+                      </h1>
+                    </div>
+                    <div className="grid justify-items-end">
+                      <h1 className="text-orange-400 font-bold">
+                        {pkg.status === 'active' ? 'Running' : pkg.status.charAt(0).toUpperCase() + pkg.status.slice(1)}
+                      </h1>
                     </div>
                   </div>
                 ))}

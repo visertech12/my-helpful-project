@@ -127,6 +127,7 @@ const App = () => (
                 <RunningPackages />
               </ProtectedRoute>
             } />
+            {/* Redirect runing-packages (typo) to running-packages */}
             <Route path="/runing-packages" element={
               <ProtectedRoute>
                 <RunningPackages />
