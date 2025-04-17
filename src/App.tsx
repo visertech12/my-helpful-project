@@ -25,6 +25,7 @@ import AccountPassword from "./pages/AccountPassword";
 import WithdrawPassword from "./pages/WithdrawPassword";
 import WithdrawWallet from "./pages/WithdrawWallet";
 import TransactionHistory from "./pages/TransactionHistory";
+import RunningPackages from "./pages/RunningPackages";
 
 // Admin routes
 import AdminLogin from "./pages/admin/AdminLogin";
@@ -119,6 +120,16 @@ const App = () => (
             <Route path="/transactions" element={
               <ProtectedRoute>
                 <TransactionHistory />
+              </ProtectedRoute>
+            } />
+            <Route path="/running-packages" element={
+              <ProtectedRoute>
+                <RunningPackages />
+              </ProtectedRoute>
+            } />
+            <Route path="/runing-packages" element={
+              <ProtectedRoute>
+                <RunningPackages />
               </ProtectedRoute>
             } />
             

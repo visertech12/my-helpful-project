@@ -64,7 +64,7 @@ const Dashboard = () => {
           <div className="mt-4">
             <div className="flex justify-between items-center">
               <h1 className="text-gray-600 font-bold text-left text-[20px]">Transactions</h1>
-              <Link to="/records/all" className="flex items-center gap-2">
+              <Link to="/transactions" className="flex items-center gap-2">
                 <h1 className="text-gray-600 font-normal text-[14px]">See All</h1>
                 <img className="w-[10px] h-[10px]" src="https://cdn-icons-png.flaticon.com/128/271/271228.png" alt="arrow" />
               </Link>
@@ -110,7 +110,7 @@ const menuItems = [
     label: "Withdraw"
   },
   {
-    href: "/runing-packages",
+    href: "/running-packages",
     iconSrc: "https://cdn-icons-png.flaticon.com/128/6286/6286629.png",
     label: "My Stocks"
   },
@@ -120,7 +120,7 @@ const menuItems = [
     label: "Teams"
   },
   {
-    href: "/records/all",
+    href: "/transactions",
     iconSrc: "https://cdn-icons-png.flaticon.com/128/7400/7400300.png",
     label: "All Records"
   },
