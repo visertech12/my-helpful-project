@@ -7,6 +7,7 @@ import { toast } from "@/components/ui/use-toast";
 import { FaUser, FaKey } from "react-icons/fa";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import * as bcrypt from 'bcryptjs';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -46,29 +47,53 @@ const AdminLogin = () => {
     setIsLoading(true);
     
     try {
-      // Sign in with Supabase
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      // Check if user has admin role
-      const { data: userData, error: userError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
+      // First check admin_users table for direct admin login
+      const { data: adminData, error: adminError } = await supabase
+        .from('admin_users')
+        .select('id, email, password_hash, full_name')
+        .eq('email', formData.email)
+        .eq('status', 'active')
         .single();
 
-      if (userError) {
-        throw userError;
-      }
+      if (adminError) {
+        // If not found in admin_users, try the regular authentication flow
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
 
-      if (userData.role !== 'admin') {
-        throw new Error('Not authorized as admin');
+        if (error) {
+          throw error;
+        }
+
+        // Check if user has admin role
+        const { data: userData, error: userError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+
+        if (userError) {
+          throw userError;
+        }
+
+        if (userData.role !== 'admin') {
+          throw new Error('Not authorized as admin');
+        }
+      } else {
+        // Admin found in admin_users table, check password
+        const passwordMatch = await bcrypt.compare(formData.password, adminData.password_hash);
+        if (!passwordMatch) {
+          throw new Error('Invalid credentials');
+        }
+        
+        // If using admin_users table, we still need to create a session or token
+        // For now, we can store admin data in localStorage
+        localStorage.setItem('adminUser', JSON.stringify({
+          id: adminData.id,
+          email: adminData.email,
+          fullName: adminData.full_name
+        }));
       }
 
       toast({

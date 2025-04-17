@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/integrations/supabase/client";
 import BottomNavigation from "@/components/BottomNavigation";
 
 interface Package {
@@ -127,6 +126,13 @@ const Recharge = () => {
       // Upload screenshot
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
+      
+      // Check if the payment-screenshots bucket exists, if not create it
+      const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('payment-screenshots');
+      
+      if (bucketError && bucketError.message.includes('does not exist')) {
+        await supabase.storage.createBucket('payment-screenshots', { public: true });
+      }
       
       const { data: fileData, error: fileError } = await supabase.storage
         .from('payment-screenshots')

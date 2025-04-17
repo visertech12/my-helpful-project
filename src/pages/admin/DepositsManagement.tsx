@@ -1,22 +1,11 @@
 
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
-import { CheckCircle, XCircle, Eye } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
-import AdminSidebar from "@/components/admin/AdminSidebar";
+import { Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import AdminHeader from "@/components/admin/AdminHeader";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import AdminSidebar from "@/components/admin/AdminSidebar";
 
 interface Deposit {
   id: string;
@@ -24,344 +13,358 @@ interface Deposit {
   amount: number;
   payment_method: string;
   transaction_id: string;
-  created_at: string;
+  screenshot_url: string | null;
   status: string;
-  screenshot_url: string;
-  username: string;
+  package_id: string | null;
+  created_at: string;
+  user_email?: string;
+  user_name?: string;
 }
 
 const DepositsManagement = () => {
-  const navigate = useNavigate();
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDeposit, setSelectedDeposit] = useState<Deposit | null>(null);
-  
+  const [processing, setProcessing] = useState<string | null>(null);
+  const [showSidebar, setShowSidebar] = useState(false);
+
   useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        navigate("/admin/login");
-        return;
-      }
-      
-      // Check if user has admin role
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
-      
-      if (error || data?.role !== 'admin') {
-        navigate("/admin/login");
-      } else {
-        fetchDeposits();
-      }
-    };
-    
-    checkAdmin();
-  }, [navigate]);
-  
+    fetchDeposits();
+  }, []);
+
   const fetchDeposits = async () => {
+    setIsLoading(true);
     try {
-      // Using a join to get username from profiles
-      const { data, error } = await supabase
-        .from('deposits')
-        .select(`
-          *,
-          profiles:user_id (username)
-        `);
-        
-      if (error) {
-        throw error;
+      const { data: depositsData, error: depositsError } = await supabase
+        .from("deposits")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (depositsError) {
+        throw depositsError;
       }
-      
-      // Transform the data to include username directly
-      const formattedDeposits = data.map(item => ({
-        ...item,
-        username: item.profiles?.username || 'Unknown',
-      }));
-      
-      setDeposits(formattedDeposits || []);
+
+      // Enhance deposits with user information
+      const enhancedDeposits = await Promise.all(
+        (depositsData || []).map(async (deposit) => {
+          const { data: userData, error: userError } = await supabase
+            .from("profiles")
+            .select("email, username, full_name")
+            .eq("id", deposit.user_id)
+            .single();
+
+          return {
+            ...deposit,
+            user_email: userError ? "Unknown" : userData.email,
+            user_name: userError ? "Unknown" : (userData.full_name || userData.username),
+          };
+        })
+      );
+
+      setDeposits(enhancedDeposits);
     } catch (error) {
-      console.error('Error fetching deposits:', error);
+      console.error("Error fetching deposits:", error);
       toast({
         title: "Error",
-        description: "Failed to load deposits",
+        description: "Could not load deposits",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
-  
-  const approveDeposit = async (depositId: string) => {
+
+  const handleStatusChange = async (depositId: string, newStatus: string) => {
+    setProcessing(depositId);
     try {
-      // First, get the deposit details
-      const { data: depositData, error: depositError } = await supabase
-        .from('deposits')
-        .select('*')
-        .eq('id', depositId)
-        .single();
-        
-      if (depositError) throw depositError;
-      
-      // Start a transaction
-      // 1. Update deposit status to approved
+      const deposit = deposits.find((d) => d.id === depositId);
+      if (!deposit) {
+        throw new Error("Deposit not found");
+      }
+
+      // Update deposit status
       const { error: updateError } = await supabase
-        .from('deposits')
-        .update({ status: 'approved' })
-        .eq('id', depositId);
-        
-      if (updateError) throw updateError;
-      
-      // 2. Update user's balance
-      const { error: balanceError } = await supabase
-        .rpc('increment_balance', { 
-          user_id_param: depositData.user_id,
-          amount_param: depositData.amount
-        });
-        
-      if (balanceError) throw balanceError;
-      
-      // 3. Create a transaction record
-      const { error: transactionError } = await supabase
-        .from('transactions')
-        .insert([
+        .from("deposits")
+        .update({ status: newStatus })
+        .eq("id", depositId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Update corresponding transaction
+      const { data: transactionData, error: transactionError } = await supabase
+        .from("transactions")
+        .select("id")
+        .eq("user_id", deposit.user_id)
+        .eq("amount", deposit.amount)
+        .eq("type", "deposit")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (!transactionError && transactionData && transactionData.length > 0) {
+        await supabase
+          .from("transactions")
+          .update({ 
+            status: newStatus,
+            description: newStatus === 'approved' 
+              ? `Deposit of $${deposit.amount} approved`
+              : `Deposit of $${deposit.amount} rejected`
+          })
+          .eq("id", transactionData[0].id);
+      }
+
+      // If approved, add funds to user balance
+      if (newStatus === "approved") {
+        // Use the increment_balance function we already have
+        const { error: balanceError } = await supabase.rpc(
+          "increment_balance",
           {
-            user_id: depositData.user_id,
-            amount: depositData.amount,
-            type: 'deposit',
-            status: 'completed',
-            description: `Deposit of $${depositData.amount} approved`,
-            reference_id: depositId
+            user_id_param: deposit.user_id,
+            amount_param: deposit.amount,
           }
-        ]);
-        
-      if (transactionError) throw transactionError;
-      
-      // Update local state
-      setDeposits(deposits.map(deposit => 
-        deposit.id === depositId ? { ...deposit, status: 'approved' } : deposit
-      ));
-      
-      toast({
-        title: "Success",
-        description: "Deposit approved and balance updated",
-      });
-    } catch (error) {
-      console.error('Error approving deposit:', error);
-      toast({
-        title: "Error",
-        description: "Failed to approve deposit",
-        variant: "destructive",
-      });
-    }
-  };
-  
-  const rejectDeposit = async (depositId: string) => {
-    try {
-      // Update deposit status to rejected
-      const { error } = await supabase
-        .from('deposits')
-        .update({ status: 'rejected' })
-        .eq('id', depositId);
-        
-      if (error) throw error;
-      
-      // Get the deposit to create transaction record
-      const { data: depositData } = await supabase
-        .from('deposits')
-        .select('*')
-        .eq('id', depositId)
-        .single();
-      
-      // Create a transaction record for the rejection
-      await supabase.from('transactions').insert([
-        {
-          user_id: depositData.user_id,
-          amount: depositData.amount,
-          type: 'deposit',
-          status: 'rejected',
-          description: `Deposit of $${depositData.amount} rejected`,
-          reference_id: depositId
+        );
+
+        if (balanceError) {
+          throw balanceError;
         }
-      ]);
-      
+        
+        // If there's a package_id, create a user_package
+        if (deposit.package_id) {
+          // First get package details
+          const { data: packageData, error: packageError } = await supabase
+            .from("packages")
+            .select("*")
+            .eq("id", deposit.package_id)
+            .single();
+          
+          if (!packageError && packageData) {
+            // Calculate end date based on package duration
+            const startDate = new Date();
+            const endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + packageData.duration_days);
+            
+            // Create user package
+            await supabase.from("user_packages").insert([
+              {
+                user_id: deposit.user_id,
+                package_id: deposit.package_id,
+                purchase_amount: deposit.amount,
+                status: "active",
+                start_date: startDate.toISOString(),
+                end_date: endDate.toISOString()
+              }
+            ]);
+          }
+        }
+      }
+
       // Update local state
-      setDeposits(deposits.map(deposit => 
-        deposit.id === depositId ? { ...deposit, status: 'rejected' } : deposit
-      ));
-      
+      setDeposits(
+        deposits.map((d) =>
+          d.id === depositId ? { ...d, status: newStatus } : d
+        )
+      );
+
       toast({
         title: "Success",
-        description: "Deposit rejected",
+        description: `Deposit ${newStatus}`,
       });
-    } catch (error) {
-      console.error('Error rejecting deposit:', error);
+    } catch (error: any) {
+      console.error(`Error ${newStatus} deposit:`, error);
       toast({
         title: "Error",
-        description: "Failed to reject deposit",
+        description: error.message || `Failed to ${newStatus} deposit`,
         variant: "destructive",
       });
+    } finally {
+      setProcessing(null);
     }
   };
-  
-  const filteredDeposits = deposits.filter(deposit => 
-    deposit.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    deposit.transaction_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    deposit.payment_method?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case "approved":
+        return "bg-green-100 text-green-800";
+      case "rejected":
+        return "bg-red-100 text-red-800";
+      case "pending":
+      default:
+        return "bg-yellow-100 text-yellow-800";
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-gray-100">
-      <AdminSidebar />
+      <AdminSidebar show={showSidebar} setShow={setShowSidebar} />
       
-      <div className="flex-1 overflow-y-auto">
-        <AdminHeader title="Deposits Management" />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <AdminHeader title="Deposits Management" onMenuClick={() => setShowSidebar(true)} />
         
-        <main className="p-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
-              <h2 className="text-xl font-semibold">All Deposits</h2>
-              
-              <div className="w-full md:w-64">
-                <Input
-                  placeholder="Search deposits..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="border-orange-200 focus-visible:ring-orange-500"
-                />
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4">
+          <div className="container mx-auto">
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+              <div className="p-4 border-b flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-gray-800">Deposits</h2>
+                <Button 
+                  onClick={fetchDeposits} 
+                  variant="outline" 
+                  size="sm"
+                  className="text-orange-500 border-orange-500 hover:bg-orange-50"
+                >
+                  Refresh
+                </Button>
               </div>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Method</TableHead>
-                    <TableHead>Transaction ID</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
-                        Loading deposits...
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredDeposits.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
-                        No deposits found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredDeposits.map((deposit) => (
-                      <TableRow key={deposit.id}>
-                        <TableCell>{deposit.username}</TableCell>
-                        <TableCell>${deposit.amount}</TableCell>
-                        <TableCell>{deposit.payment_method}</TableCell>
-                        <TableCell>{deposit.transaction_id}</TableCell>
-                        <TableCell>
-                          {new Date(deposit.created_at).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            deposit.status === 'approved' 
-                              ? 'bg-green-100 text-green-700' 
-                              : deposit.status === 'rejected'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {deposit.status}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setSelectedDeposit(deposit)}
-                                >
-                                  <Eye className="h-4 w-4 text-blue-500" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-md">
-                                <DialogHeader>
-                                  <DialogTitle>Deposit Details</DialogTitle>
-                                </DialogHeader>
-                                {selectedDeposit && (
-                                  <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-2">
-                                      <div className="font-semibold">User:</div>
-                                      <div>{selectedDeposit.username}</div>
-                                      
-                                      <div className="font-semibold">Amount:</div>
-                                      <div>${selectedDeposit.amount}</div>
-                                      
-                                      <div className="font-semibold">Method:</div>
-                                      <div>{selectedDeposit.payment_method}</div>
-                                      
-                                      <div className="font-semibold">Transaction ID:</div>
-                                      <div>{selectedDeposit.transaction_id}</div>
-                                      
-                                      <div className="font-semibold">Date:</div>
-                                      <div>{new Date(selectedDeposit.created_at).toLocaleString()}</div>
-                                      
-                                      <div className="font-semibold">Status:</div>
-                                      <div>{selectedDeposit.status}</div>
-                                    </div>
-                                    
-                                    {selectedDeposit.screenshot_url && (
-                                      <div className="mt-4">
-                                        <h4 className="font-semibold mb-2">Payment Screenshot</h4>
-                                        <img 
-                                          src={selectedDeposit.screenshot_url} 
-                                          alt="Payment Screenshot" 
-                                          className="w-full rounded-md border border-gray-200"
-                                        />
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </DialogContent>
-                            </Dialog>
-                            
-                            {deposit.status === 'pending' && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => approveDeposit(deposit.id)}
-                                >
-                                  <CheckCircle className="h-4 w-4 text-green-500" />
-                                </Button>
-                                
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => rejectDeposit(deposit.id)}
-                                >
-                                  <XCircle className="h-4 w-4 text-red-500" />
-                                </Button>
-                              </>
+              
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        User
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Payment Method
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Transaction ID
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Screenshot
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {deposits.length > 0 ? (
+                      deposits.map((deposit) => (
+                        <tr key={deposit.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {deposit.user_name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {deposit.user_email}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              ${deposit.amount.toFixed(2)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {deposit.payment_method}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {deposit.transaction_id}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {deposit.screenshot_url ? (
+                              <a
+                                href={deposit.screenshot_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-orange-500 hover:underline"
+                              >
+                                View Screenshot
+                              </a>
+                            ) : (
+                              <span className="text-gray-500">No screenshot</span>
                             )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex px-2 py-1 text-xs font-semibold leading-5 rounded-full ${getStatusBadgeClass(
+                                deposit.status
+                              )}`}
+                            >
+                              {deposit.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {new Date(deposit.created_at).toLocaleDateString()}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(deposit.created_at).toLocaleTimeString()}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            {deposit.status === "pending" ? (
+                              <div className="flex space-x-2">
+                                <Button
+                                  onClick={() =>
+                                    handleStatusChange(deposit.id, "approved")
+                                  }
+                                  size="sm"
+                                  className="bg-green-500 hover:bg-green-600"
+                                  disabled={!!processing}
+                                >
+                                  {processing === deposit.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    "Approve"
+                                  )}
+                                </Button>
+                                <Button
+                                  onClick={() =>
+                                    handleStatusChange(deposit.id, "rejected")
+                                  }
+                                  size="sm"
+                                  variant="destructive"
+                                  disabled={!!processing}
+                                >
+                                  {processing === deposit.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    "Reject"
+                                  )}
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-500 italic">
+                                No actions available
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={8}
+                          className="px-6 py-4 text-center text-gray-500"
+                        >
+                          No deposits found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </main>

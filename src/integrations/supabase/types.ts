@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string | null
+          email: string
+          full_name: string | null
+          id: string
+          password_hash: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          full_name?: string | null
+          id?: string
+          password_hash: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          password_hash?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       deposits: {
         Row: {
           amount: number
@@ -341,6 +371,10 @@ export type Database = {
       decrement_balance: {
         Args: { user_id_param: string; amount_param: number }
         Returns: boolean
+      }
+      get_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       increment_balance: {
         Args: { user_id_param: string; amount_param: number }
