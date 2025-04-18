@@ -1,30 +1,20 @@
 
-import { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { FaUser, FaKey } from 'react-icons/fa';
-import { isValidEmail } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user } = useAuth();
+  const { signIn } = useAuth();
   
   const [formData, setFormData] = useState({
     username: '',
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Redirect if already logged in
-  useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
-    }
-  }, [user, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -48,54 +38,14 @@ const Login = () => {
         throw new Error('Password is required');
       }
       
-      // If username contains @, validate as email
-      if (formData.username.includes('@') && !isValidEmail(formData.username)) {
-        throw new Error('Please enter a valid email address');
-      }
-      
-      // Determine if input is email or username
-      const isEmail = formData.username.includes('@');
-      
-      let credentials;
-      if (isEmail) {
-        // Login with email
-        credentials = {
-          email: formData.username,
-          password: formData.password
-        };
-      } else {
-        // First get the email associated with this username
-        const { data: userData, error: userError } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('username', formData.username)
-          .single();
-          
-        if (userError || !userData?.email) {
-          throw new Error('User not found');
-        }
-        
-        credentials = {
-          email: userData.email,
-          password: formData.password
-        };
-      }
-      
-      // Sign in with email and password
-      const { data, error } = await supabase.auth.signInWithPassword(credentials);
-      
-      if (error) {
-        throw new Error(error.message);
-      }
+      await signIn(formData.username, formData.password);
       
       toast({
         title: "Login Successful",
         description: "Welcome back!",
       });
       
-      // Redirect to dashboard or saved location
-      const from = (location.state as any)?.from?.pathname || '/dashboard';
-      navigate(from);
+      navigate('/dashboard');
     } catch (error: any) {
       setError(error.message);
       toast({

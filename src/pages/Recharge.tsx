@@ -1,26 +1,15 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import BottomNavigation from "@/components/BottomNavigation";
-
-interface Package {
-  id: string;
-  name: string;
-  price: number;
-  description: string;
-}
 
 const Recharge = () => {
   const navigate = useNavigate();
-  const { id } = useParams();
-  const [isLoading, setIsLoading] = useState(true);
   const [uploadingFile, setUploadingFile] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
-  const [currentBalance, setCurrentBalance] = useState(0);
   const [formData, setFormData] = useState({
     amount: 50,
     paymentMethod: "",
@@ -31,46 +20,6 @@ const Recharge = () => {
     rate: 100,
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        navigate("/");
-        return;
-      }
-      
-      // Fetch package details if ID is provided
-      if (id) {
-        const { data: packageData, error: packageError } = await supabase
-          .from('packages')
-          .select('*')
-          .eq('id', id)
-          .single();
-          
-        if (!packageError && packageData) {
-          setSelectedPackage(packageData);
-          setFormData(prev => ({ ...prev, amount: packageData.price }));
-        }
-      }
-      
-      // Fetch user's current balance
-      const { data: userData, error: userError } = await supabase
-        .from('profiles')
-        .select('balance')
-        .eq('id', session.user.id)
-        .single();
-        
-      if (!userError && userData) {
-        setCurrentBalance(userData.balance || 0);
-      }
-      
-      setIsLoading(false);
-    };
-    
-    checkAuth();
-  }, [navigate, id]);
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -115,97 +64,29 @@ const Recharge = () => {
         return;
       }
       
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/");
-        return;
-      }
-      
       setUploadingFile(true);
       
-      // Upload screenshot
-      const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${session.user.id}-${Date.now()}.${fileExt}`;
-      
-      // Check if the payment-screenshots bucket exists, if not create it
-      const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('payment-screenshots');
-      
-      if (bucketError && bucketError.message.includes('does not exist')) {
-        await supabase.storage.createBucket('payment-screenshots', { public: true });
-      }
-      
-      const { data: fileData, error: fileError } = await supabase.storage
-        .from('payment-screenshots')
-        .upload(fileName, selectedFile);
+      // Mock file upload
+      setTimeout(() => {
+        toast({
+          title: "Success",
+          description: "Your deposit request has been submitted!",
+        });
         
-      if (fileError) {
-        throw fileError;
-      }
+        navigate("/dashboard");
+        setUploadingFile(false);
+      }, 1500);
       
-      // Get public URL for the uploaded file
-      const { data: publicUrlData } = supabase.storage
-        .from('payment-screenshots')
-        .getPublicUrl(fileName);
-        
-      const screenshotUrl = publicUrlData.publicUrl;
-      
-      // Create deposit record
-      const { data: depositData, error: depositError } = await supabase
-        .from('deposits')
-        .insert([
-          {
-            user_id: session.user.id,
-            amount: formData.amount,
-            payment_method: formData.paymentMethod,
-            transaction_id: formData.transactionId,
-            screenshot_url: screenshotUrl,
-            status: 'pending',
-            package_id: id || null
-          }
-        ]);
-        
-      if (depositError) {
-        throw depositError;
-      }
-      
-      // Create transaction record
-      await supabase
-        .from('transactions')
-        .insert([
-          {
-            user_id: session.user.id,
-            amount: formData.amount,
-            type: 'deposit',
-            status: 'pending',
-            description: `Deposit of $${formData.amount} pending approval`
-          }
-        ]);
-      
-      toast({
-        title: "Success",
-        description: "Your deposit request has been submitted!",
-      });
-      
-      navigate("/dashboard");
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting deposit:', error);
       toast({
         title: "Error",
         description: "Failed to submit deposit request",
         variant: "destructive",
       });
-    } finally {
       setUploadingFile(false);
     }
   };
-  
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-orange-100">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
-      </div>
-    );
-  }
   
   const toPay = formData.amount * paymentInfo.rate;
   
@@ -230,7 +111,7 @@ const Recharge = () => {
                   onClick={() => navigate(-1)}
                 />
                 <h1 className="text-white text-[16px]">
-                  {selectedPackage ? `Top-up for ${selectedPackage.name}` : "Deposit Funds"}
+                  Deposit Funds
                 </h1>
               </div>
               <div className="bg-gradient-to-b from-gray-200 to-orange-200 h-[40px] w-[40px] rounded-full p-[2px]">
@@ -247,7 +128,7 @@ const Recharge = () => {
                 <div className="flex justify-between items-center gap-2">
                   <div>
                     <h1 className="text-orange-500 font-semibold text-[16px]">Current Balance</h1>
-                    <h1 className="text-orange-500 font-semibold text-[26px]">${currentBalance.toFixed(2)}</h1>
+                    <h1 className="text-orange-500 font-semibold text-[26px]">$0.00</h1>
                   </div>
                   <img 
                     className="w-[70px] h-[70px]" 
@@ -270,7 +151,6 @@ const Recharge = () => {
                       placeholder="Enter Amount to Deposit"
                       value={formData.amount}
                       onChange={handleChange}
-                      disabled={selectedPackage !== null}
                     />
                   </div>
                 </div>

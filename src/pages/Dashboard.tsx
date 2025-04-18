@@ -1,154 +1,99 @@
 
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import BottomNavigation from "@/components/BottomNavigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
   return (
-    <div className="auth-container">
-      {/* Background gradient */}
-      <div className="auth-bg-gradient"></div>
-      
-      {/* Decorative image */}
-      <img 
-        className="absolute top-[-25px] right-[-25px] w-[30%] mix-blend-multiply rotate-[40deg] scale-[1.1] opacity-[60%]"
-        src="https://cdn-icons-png.flaticon.com/128/15177/15177698.png"
-        alt="decorative"
-      />
-      
-      <div className="relative z-10">
-        <div className="p-[15px]">
-          <div className="flex items-center justify-between">
-            {/* User avatar */}
-            <div className="bg-gradient-to-b from-gray-200 to-orange-200 h-[40px] w-[40px] rounded-full p-[2px]">
-              <img 
-                className="rounded-full w-full h-full" 
-                src="https://img.freepik.com/premium-photo/3d-rendering-avatar-design_1258715-60685.jpg" 
-                alt="user avatar"
-              />
-            </div>
-            
-            {/* Notice button */}
-            <Link to="/notice-board" className="flex gap-3 items-center bg-black/30 backdrop-blur h-[40px] rounded-full px-[15px]">
-              <div className="bg-transparent w-3 h-3 rounded-full ring-[4px] ring-orange-500"></div>
-              <h1 className="text-white text-[16px]">Notice</h1>
-            </Link>
-          </div>
-          
-          {/* User balance section */}
-          <div className="mt-[40px]">
-            <h1 className="font-semibold text-orange-200 text-[18px]">demodemo</h1>
-            <h1 className="font-bold text-gray-100 text-[32px]">$0.00</h1>
-          </div>
-          
-          {/* Total earning section */}
-          <div className="mt-[40px]">
-            <div className="flex items-center justify-between gap-2 bg-gradient-to-bl from-orange-800 to-orange-700 p-3 rounded-full">
-              <h1 className="text-orange-200/60 font-bold">Total Earning</h1>
-              <h1 className="text-white font-bold">$0.00</h1>
-            </div>
-          </div>
-          
-          {/* Menu grid */}
-          <div className="mt-[20px]">
-            <div className="grid gap-4 grid-cols-3">
-              {menuItems.map((item, index) => (
-                <MenuGridItem key={index} href={item.href} iconSrc={item.iconSrc} label={item.label} />
-              ))}
-            </div>
-          </div>
-        </div>
+    <div className="relative min-h-screen bg-orange-100 max-w-[480px] mx-auto overflow-hidden pb-20">
+      <div className="relative overflow-x-hidden">
+        <div className="absolute top-[-20px] scale-[1.3] bg-gradient-to-b from-orange-600 via-orange-400 to-orange-100 w-full h-[300px] rotate-[-10deg] blur-lg"></div>
         
-        {/* Transactions section */}
-        <div className="bg-gradient-to-b from-white/80 to-orange-100 p-3 rounded-t-[30px] pb-[50px]">
-          <div className="bg-orange-200 w-12 h-2 rounded-full mx-auto"></div>
-          <div className="mt-4">
-            <div className="flex justify-between items-center">
-              <h1 className="text-gray-600 font-bold text-left text-[20px]">Transactions</h1>
-              <Link to="/transactions" className="flex items-center gap-2">
-                <h1 className="text-gray-600 font-normal text-[14px]">See All</h1>
-                <img className="w-[10px] h-[10px]" src="https://cdn-icons-png.flaticon.com/128/271/271228.png" alt="arrow" />
-              </Link>
+        <div className="relative z-[2]">
+          <div className="p-[15px]">
+            <div className="flex items-center justify-between">
+              <div className="flex gap-3 items-center bg-black/30 backdrop-blur h-[40px] rounded-full px-[15px]">
+                <h1 className="text-white text-[16px]">Dashboard</h1>
+              </div>
+              <div className="bg-gradient-to-b from-gray-200 to-orange-200 h-[40px] w-[40px] rounded-full p-[2px]">
+                <img 
+                  className="rounded-full w-full h-full cursor-pointer" 
+                  src="https://img.freepik.com/premium-photo/3d-rendering-avatar-design_1258715-60685.jpg" 
+                  alt="Avatar" 
+                  onClick={() => navigate('/profile')}
+                />
+              </div>
             </div>
-            <div className="grid gap-4 mt-4">
-              <div className="h-[200px] grid grid-cols-1 content-center justify-items-center">
-                <div className="grid content-center justify-items-center">
-                  <img width="60px" className="hue-rotate-[224deg]" src="https://cdn-icons-png.flaticon.com/128/16504/16504070.png" alt="no transactions" />
-                  <h1 className="text-gray-500 text-sm mt-2">No Transactions Found!</h1>
+
+            <div className="mt-[50px]">
+              <div className="bg-white/50 backdrop-blur p-4 rounded-[10px] mb-4">
+                <div className="flex justify-between items-center gap-2">
+                  <div>
+                    <h1 className="text-orange-500 font-semibold text-[16px]">Welcome</h1>
+                    <h1 className="text-orange-500 font-semibold text-[26px]">
+                      {user?.name || 'User'}
+                    </h1>
+                  </div>
+                  <img 
+                    className="w-[70px] h-[70px]" 
+                    src="https://cdn3d.iconscout.com/3d/premium/thumb/secure-wallet-3d-icon-download-in-png-blend-fbx-gltf-file-formats--balance-money-business-payment-shopping-pack-e-commerce-icons-5769610.png?f=webp" 
+                    alt="Wallet" 
+                  />
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <Card className="bg-white/50 backdrop-blur">
+                  <CardContent className="p-4 flex flex-col items-center justify-center">
+                    <div className="text-orange-500 text-lg font-semibold">Balance</div>
+                    <div className="text-orange-500 text-2xl font-bold">$0.00</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-white/50 backdrop-blur">
+                  <CardContent className="p-4 flex flex-col items-center justify-center">
+                    <div className="text-orange-500 text-lg font-semibold">Total Deposit</div>
+                    <div className="text-orange-500 text-2xl font-bold">$0.00</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex justify-center mb-6">
+                <Button 
+                  className="bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 px-8 py-6"
+                  onClick={() => navigate('/recharge')}
+                >
+                  Deposit Now
+                </Button>
+              </div>
+
+              <Card className="bg-white/50 backdrop-blur mb-6">
+                <CardContent className="p-4">
+                  <h2 className="text-lg font-semibold text-orange-500 mb-2">Recent Transactions</h2>
+                  <div className="text-center py-4 text-gray-500">
+                    No transactions found
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Button 
+                variant="outline" 
+                className="w-full border-orange-500 text-orange-500 hover:bg-orange-50"
+                onClick={() => signOut()}
+              >
+                Sign Out
+              </Button>
             </div>
           </div>
         </div>
       </div>
-      
-      {/* Bottom Navigation */}
       <BottomNavigation />
     </div>
   );
 };
-
-// Menu grid item component
-const MenuGridItem = ({ href, iconSrc, label }: { href: string; iconSrc: string; label: string }) => (
-  <Link 
-    to={href}
-    className="grid justify-items-center bg-white/30 shadow-md shadow-gray-500/5 rounded-[20px] px-2 py-5"
-  >
-    <img 
-      className="w-[45px] aspect-square rounded-full bg-orange-600" 
-      src={iconSrc} 
-      alt={label}
-    />
-    <h1 className="text-[13px] text-gray-600 font-semibold text-nowrap mt-4">{label}</h1>
-  </Link>
-);
-
-// Menu item data
-const menuItems = [
-  {
-    href: "/cashout",
-    iconSrc: "https://cdn-icons-png.flaticon.com/128/5659/5659950.png",
-    label: "Withdraw"
-  },
-  {
-    href: "/running-packages",
-    iconSrc: "https://cdn-icons-png.flaticon.com/128/6286/6286629.png",
-    label: "My Stocks"
-  },
-  {
-    href: "/team/1",
-    iconSrc: "https://cdn-icons-png.flaticon.com/128/2843/2843289.png",
-    label: "Teams"
-  },
-  {
-    href: "/transactions",
-    iconSrc: "https://cdn-icons-png.flaticon.com/128/7400/7400300.png",
-    label: "All Records"
-  },
-  {
-    href: "/records/cashout",
-    iconSrc: "https://cdn-icons-png.flaticon.com/128/17871/17871628.png",
-    label: "Withdrawals"
-  },
-  {
-    href: "/commissions",
-    iconSrc: "https://cdn-icons-png.flaticon.com/128/6132/6132721.png",
-    label: "Commission"
-  },
-  {
-    href: "/news",
-    iconSrc: "https://cdn-icons-png.flaticon.com/128/2353/2353154.png",
-    label: "News"
-  },
-  {
-    href: "/guide",
-    iconSrc: "https://cdn-icons-png.flaticon.com/128/4542/4542770.png",
-    label: "Guide"
-  },
-  {
-    href: "/apps",
-    iconSrc: "https://cdn-icons-png.flaticon.com/128/1029/1029767.png",
-    label: "Apps"
-  }
-];
 
 export default Dashboard;
