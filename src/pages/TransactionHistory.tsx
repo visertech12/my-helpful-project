@@ -1,5 +1,5 @@
+
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 import { Transaction } from '@/types/transaction';
 
@@ -9,33 +9,47 @@ const TransactionHistory = () => {
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    const fetchTransactions = async () => {
-      if (!user) return;
+    // Simulate API fetch with timeout
+    const timeoutId = setTimeout(() => {
+      // Mock transaction data
+      const mockTransactions: Transaction[] = [
+        {
+          id: '1',
+          user_id: '123',
+          amount: 100,
+          type: 'deposit',
+          status: 'completed',
+          description: 'Initial deposit',
+          created_at: '2025-03-15T12:00:00Z',
+          updated_at: '2025-03-15T12:00:00Z'
+        },
+        {
+          id: '2',
+          user_id: '123',
+          amount: 50,
+          type: 'withdrawal',
+          status: 'pending',
+          description: 'Withdrawal request',
+          created_at: '2025-04-01T10:30:00Z',
+          updated_at: '2025-04-01T10:30:00Z'
+        },
+        {
+          id: '3',
+          user_id: '123',
+          amount: 25,
+          type: 'referral',
+          status: 'completed',
+          description: 'Referral bonus',
+          created_at: '2025-04-10T15:45:00Z',
+          updated_at: '2025-04-10T15:45:00Z'
+        }
+      ];
       
-      try {
-        const { data, error } = await supabase
-          .from('transactions')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-          
-        if (error) throw error;
-        
-        // Cast each transaction's type to ensure it matches our TransactionType
-        const typedTransactions = data.map(transaction => ({
-          ...transaction,
-          type: transaction.type as Transaction['type']
-        }));
-        
-        setTransactions(typedTransactions);
-      } catch (error) {
-        console.error('Error fetching transactions:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      setTransactions(mockTransactions);
+      setIsLoading(false);
+    }, 1000);
     
-    fetchTransactions();
+    return () => clearTimeout(timeoutId);
   }, [user]);
   
   return (

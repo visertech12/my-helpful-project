@@ -1,10 +1,9 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
-import { supabase } from "@/lib/supabaseClient";
 import BottomNavigation from "@/components/BottomNavigation";
 import { Lock, Loader2 } from "lucide-react";
 
@@ -13,30 +12,6 @@ const WithdrawPassword = () => {
   const [withdrawPin, setWithdrawPin] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isPinSet, setIsPinSet] = useState(false);
-  
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        navigate("/");
-        return;
-      }
-      
-      // Check if user has already set a withdraw PIN
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('withdraw_pin')
-        .eq('id', session.user.id)
-        .single();
-        
-      if (!error && data && data.withdraw_pin) {
-        setIsPinSet(true);
-      }
-    };
-    
-    checkAuth();
-  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,22 +38,11 @@ const WithdrawPassword = () => {
     setIsLoading(true);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Simulate an API call with a timeout
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      if (!session) {
-        navigate("/");
-        return;
-      }
-      
-      // Update withdraw PIN
-      const { error } = await supabase
-        .from('profiles')
-        .update({ withdraw_pin: withdrawPin })
-        .eq('id', session.user.id);
-        
-      if (error) {
-        throw error;
-      }
+      // Mock update withdraw PIN
+      setIsPinSet(true);
       
       toast({
         title: "Success",
@@ -87,7 +51,6 @@ const WithdrawPassword = () => {
           : "Your withdraw pin has been set successfully",
       });
       
-      setIsPinSet(true);
       setWithdrawPin("");
     } catch (error) {
       console.error('Error updating withdraw pin:', error);

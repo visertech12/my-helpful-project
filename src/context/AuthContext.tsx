@@ -4,6 +4,7 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 type User = {
   name: string;
   email: string;
+  id: string; // Added id to match what's used in other components
 };
 
 type AuthContextType = {
@@ -31,7 +32,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       // Simple mock authentication
       if (email && password) {
-        setUser({ name: 'Demo User', email });
+        // For demo purposes only - create user with id
+        const mockUser = { 
+          name: 'Demo User', 
+          email,
+          id: '12345'  // Add mock id
+        };
+        setUser(mockUser);
       }
     } finally {
       setIsLoading(false);

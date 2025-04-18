@@ -2,20 +2,22 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomNavigation from "@/components/BottomNavigation";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+// Mock package interface
+interface Package {
+  name: string;
+  price: number;
+  daily_profit_percentage: number;
+  duration_days: number;
+  total_return_percentage: number;
+}
+
 interface UserPackage {
   id: string;
-  package: {
-    name: string;
-    price: number;
-    daily_profit_percentage: number;
-    duration_days: number;
-    total_return_percentage: number;
-  };
+  package: Package;
   purchase_amount: number;
   status: string;
   start_date: string;
@@ -31,54 +33,48 @@ const RunningPackages = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchUserPackages = async () => {
-      try {
-        if (!user) return;
-        
-        const { data, error } = await supabase
-          .from('user_packages')
-          .select(`
-            id,
-            purchase_amount,
-            status,
-            start_date,
-            end_date,
-            created_at,
-            package:package_id (
-              name, 
-              price, 
-              daily_profit_percentage, 
-              duration_days, 
-              total_return_percentage
-            )
-          `)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          toast({
-            variant: "destructive",
-            title: "Error fetching packages",
-            description: error.message
-          });
-          return;
+    // Simulate API fetch delay
+    const timeoutId = setTimeout(() => {
+      // Mock user packages data
+      const mockPackages: UserPackage[] = [
+        {
+          id: "1",
+          package: {
+            name: "Basic Stock",
+            price: 100,
+            daily_profit_percentage: 0.5,
+            duration_days: 30,
+            total_return_percentage: 15,
+          },
+          purchase_amount: 100,
+          status: "active",
+          start_date: "2025-03-01",
+          end_date: "2025-04-01",
+          created_at: "2025-03-01",
+        },
+        {
+          id: "2",
+          package: {
+            name: "Premium Stock",
+            price: 500,
+            daily_profit_percentage: 0.7,
+            duration_days: 45,
+            total_return_percentage: 31.5,
+          },
+          purchase_amount: 500,
+          status: "active",
+          start_date: "2025-03-10",
+          end_date: "2025-04-25",
+          created_at: "2025-03-10",
         }
-
-        setPackages(data || []);
-      } catch (error) {
-        console.error("Error fetching user packages:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to fetch your stocks. Please try again."
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUserPackages();
-  }, [user, toast]);
+      ];
+      
+      setPackages(mockPackages);
+      setIsLoading(false);
+    }, 1000);
+    
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   // Calculate daily profit amount
   const calculateDailyProfit = (purchaseAmount: number, dailyProfitPercentage: number) => {
